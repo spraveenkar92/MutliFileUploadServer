@@ -3,6 +3,8 @@ const multer = require("multer");
 const path = require("path");
 const cors = require("cors");
 
+const logger = require("./logger");
+
 const app = express();
 app.use(cors());
 app.use(express.static(path.join(__dirname, "client/build")));
@@ -21,6 +23,17 @@ const upload = multer({
 });
 
 app.post("/upload", upload.single("file"), (req, res) => {
+  let uploadedFile = req.file;
+  let fileSize = uploadedFile.size / (1024 * 1024);
+  logger.info(
+    `FileName:${uploadedFile.originalname} - FileSize:${fileSize.toFixed(
+      2
+    )}MB - Destination: ${uploadedFile.path} - MimeType: ${
+      uploadedFile.mimetype
+    }`
+  );
+  // console.log("Received file:", req.file);
+  // console.log("Received body:", req.body);
   res.send("File uploaded successfully");
 });
 
