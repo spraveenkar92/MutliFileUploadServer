@@ -5,9 +5,22 @@ const cors = require("cors");
 
 const logger = require("./logger");
 
+// Path to the environment file based on NODE_ENV
+const envPath = path.resolve(__dirname, `${process.env.NODE_ENV}.env`);
+const result = require("dotenv").config({
+  path: envPath,
+});
+if (result.error) logger.error("Error loading .env file:", result.error);
+logger.info(`Node environment: ${process.env.NODE_ENV}`);
+
+const adHelper = require("./active_directory");
+const authenticationToken = require("./authMiddleware");
+
+const PORT = process.env.PORT || 3000;
 const app = express();
 app.use(cors());
 app.use(express.static(path.join(__dirname, "client/build")));
+app.use(express.json());
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -22,7 +35,7 @@ const upload = multer({
   storage: storage,
 });
 
-app.post("/upload", upload.single("file"), (req, res) => {
+app.post("/upload", authenticationToken, upload.single("file"), (req, res) => {
   let uploadedFile = req.file;
   let fileSize = uploadedFile.size / (1024 * 1024);
   logger.info(
@@ -37,10 +50,22 @@ app.post("/upload", upload.single("file"), (req, res) => {
   res.send("File uploaded successfully");
 });
 
+app.post("/login", async (req, res) => {
+  const { pfNo, password } = req.body;
+  try {
+    const token = await adHelper.checkAdLogin(pfNo, password);
+    if (token) res.json(token);
+    else res.status(401).json({ error: "Invalid credentials" });
+  } catch (error) {
+    logger.error(`Error during authentication: `, error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname + "/client/build/index.html"));
 });
 
-app.listen(4000, () => {
-  console.log("Server is running on port 4000");
+app.listen(PORT, () => {
+  logger.info(`Server is running on port ${PORT}`);
 });
